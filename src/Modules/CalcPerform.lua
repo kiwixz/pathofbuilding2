@@ -396,10 +396,9 @@ local function doActorAttribsConditions(env, actor)
 		if not modDB:Flag(nil, "NoStrengthAttributeBonuses") then
 			if not modDB:Flag(nil, "NoStrBonusToLife") then
 				if modDB:Flag(nil, "HalvesLifeFromStrength") then
-					modDB:NewMod("Life", "BASE", output.Str * 1 * inherentAttributeMultiplier, "Strength")
-				else
-					modDB:NewMod("Life", "BASE", output.Str * 2 * inherentAttributeMultiplier, "Strength")
+					inherentAttributeMultiplier = inherentAttributeMultiplier * 0.5
 				end
+				modDB:NewMod("Life", "BASE", output.Str * 2 * inherentAttributeMultiplier, "Strength")
 			end
 		end
 		if not modDB:Flag(nil, "NoDexterityAttributeBonuses") then

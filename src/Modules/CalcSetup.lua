@@ -117,17 +117,12 @@ local function refreshJewelStatCache(env)
 	end
 end
 
-function calcs.buildModListForNode(env, node, incSmallPassiveSkill, includeKeystoneMods)
+function calcs.buildModListForNode(env, node, incSmallPassiveSkill)
 	local localSmallIncEffect = 0
 	local localNotableIncEffect = 0
 	local modList = new("ModList")
 	if node.type == "Keystone" then
-		if includeKeystoneMods then
-			modList:AddList(node.modList)
-		end
-		if node.keystoneMod then
-			modList:AddMod(node.keystoneMod)
-		end
+		modList:AddMod(node.keystoneMod)
 	else
 		modList:AddList(node.modList)
 	end
@@ -269,7 +264,7 @@ function calcs.buildModListForNode(env, node, incSmallPassiveSkill, includeKeyst
 end
 
 -- Build list of modifiers from the listed tree nodes
-function calcs.buildModListForNodeList(env, nodeList, finishJewels, includeKeystoneMods)
+function calcs.buildModListForNodeList(env, nodeList, finishJewels)
 	-- Initialise radius jewels
 	for _, rad in pairs(env.radiusJewelList) do
 		wipeTable(rad.data)
@@ -285,7 +280,7 @@ function calcs.buildModListForNodeList(env, nodeList, finishJewels, includeKeyst
 	-- Add node modifiers
 	local modList = new("ModList")
 	for _, node in pairs(nodeList) do
-		local nodeModList = calcs.buildModListForNode(env, node, inc, includeKeystoneMods)
+		local nodeModList = calcs.buildModListForNode(env, node, inc)
 		modList:AddList(nodeModList)
 		if env.mode == "MAIN" then
 			node.finalModList = nodeModList
@@ -755,7 +750,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 		env.allocNodes = nodes
 	end
 
-	local nodesModsList = calcs.buildModListForNodeList(env, env.allocNodes, true, true)
+	local nodesModsList = calcs.buildModListForNodeList(env, env.allocNodes, true)
 	
 	if allocatedNotableCount and allocatedNotableCount > 0 then
 		modDB:NewMod("Multiplier:AllocatedNotable", "BASE", allocatedNotableCount)
@@ -775,28 +770,15 @@ function calcs.initEnv(build, mode, override, specEnv)
 
 	-- add Conditional WeaponSet# base on weapon set from item
 	modDB:NewMod("Condition:WeaponSet" .. (build.itemsTab.activeItemSet.useSecondWeaponSet and 2 or 1) , "FLAG", true, "Weapon Set")
-	
-	local weaponFlagState = {
-		giantsBlood = nodesModsList:Flag(nil, "GiantsBlood") or false,
-		instrumentsOfPower = nodesModsList:Flag(nil, "InstrumentsOfPower") or false,
-		lordOfTheWilds = nodesModsList:Flag(nil, "LordOfTheWilds") or false,
-	}
-	local cache = build.itemsTab.lastWeaponFlagState
-	local losingGiantsBlood = cache and cache.giantsBlood and not weaponFlagState.giantsBlood
-	local losingInstrumentsOfPower = cache and cache.instrumentsOfPower and not weaponFlagState.instrumentsOfPower
-	local losingLordOfTheWilds = cache and cache.lordOfTheWilds and not weaponFlagState.lordOfTheWilds
-	if losingGiantsBlood or losingInstrumentsOfPower or losingLordOfTheWilds then -- Only validate socket when losing Keystone / Ascendancy
-		build.itemsTab:ValidateWeaponSlots(weaponFlagState)
-	end
-	build.itemsTab.lastWeaponFlagState = { giantsBlood = weaponFlagState.giantsBlood, instrumentsOfPower = weaponFlagState.instrumentsOfPower, lordOfTheWilds = weaponFlagState.lordOfTheWilds }
 
 	-- Build and merge item modifiers, and create list of radius jewels
 	if not accelerate.requirementsItems then
 		local items = {}
 		local jewelLimits = {}
-		local giantsBlood = weaponFlagState.giantsBlood
-		local instrumentsOfPower = weaponFlagState.instrumentsOfPower
-		local lordOfTheWilds = weaponFlagState.lordOfTheWilds
+		local giantsBlood = true
+		if build.calcsTab and build.calcsTab.mainEnv then
+			giantsBlood = build.calcsTab.mainEnv.modDB:Flag(nil, "GiantsBlood")
+		end
 		for _, slot in pairs(build.itemsTab.orderedSlots) do
 			local slotName = slot.slotName
 			local item
@@ -804,8 +786,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 				item = override.repItem
 			elseif override.repItem and override.repSlotName:match("^Weapon 1") and slotName:match("^Weapon 2") and
 			(
-				(not lordOfTheWilds and override.repItem.base.type == "Talisman" and item and item.base.type ~= "Sceptre" and item.rarity ~= "UNIQUE" and item.rarity ~= "RELIC")
-				or (not instrumentsOfPower and override.repItem.base.type == "Staff" and item and item.base.type ~= "Focus")
+				override.repItem.base.type == "Staff"
 				or (not giantsBlood and (override.repItem.base.type == "Two Handed Sword" or override.repItem.base.type == "Two Handed Axe" or override.repItem.base.type == "Two Handed Mace"))
 				or (override.repItem.base.type == "Bow" and item and item.base.type ~= "Quiver")
 			) then
